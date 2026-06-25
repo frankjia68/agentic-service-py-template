@@ -1,0 +1,11 @@
+services:
+  agentic-service-py-template:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - ASPT_DB_CONNECTION_STRING=sqlite+aiosqlite:///./data/agentic_service_py_template.db
+      - ASPT_AUTH_JWT_SECRET=change-me-in-production
+    restart: unless-stopped

@@ -1,0 +1,46 @@
+flowchart TB
+    subgraph Presentation["Presentation Layer"]
+        direction TB
+        fastapi["FastAPI"]
+        routes["APIRouter\n/api/health\n/api/investment-summary\n/api/chat/stream"]
+        sse["sse-starlette\nEventSourceResponse"]
+    end
+
+    subgraph AuthLayer["Auth Layer"]
+        direction TB
+        jwt["JWT Middleware\npyjwt"]
+        skip["Skips /api/health, /docs, /openapi.json"]
+    end
+
+    subgraph ObservabilityLayer["Observability Layer"]
+        direction TB
+        ctx["contextvars\ncorrelation_id"]
+        req_log["RequestLog"]
+        ai_obs_log["AiObservabilityLog"]
+    end
+
+    subgraph AgentLayer["AI Agent Layer"]
+        direction TB
+        summary_graph["InvestmentSummaryGraph\nsample, stateless, <=3 retries"]
+        advisor_graph["InvestmentAdvisorGraph\nsample, tool-calling, <=10 iterations"]
+    end
+
+    subgraph ToolLLMLayer["Tool / LLM Layer"]
+        direction TB
+        litellm["litellm.acompletion()"]
+        tools["3 placeholder sample tools\nweather, property, MLS"]
+    end
+
+    subgraph DataLayer["Data Layer"]
+        direction TB
+        db["SQLAlchemy async + SQLite\naiosqlite"]
+        saver["AsyncSqliteSaver\ncheckpointer"]
+        alembic["Alembic migrations"]
+    end
+
+    Presentation -->|HTTP requests| AuthLayer
+    AuthLayer -->|sets request.state.current_user| ObservabilityLayer
+    ObservabilityLayer -->|propagates correlation_id| AgentLayer
+    AgentLayer -->|calls| ToolLLMLayer
+    ToolLLMLayer -->|persist sessions + logs| DataLayer
+    ObservabilityLayer -->|persist request logs| DataLayer

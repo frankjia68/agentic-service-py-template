@@ -1,0 +1,38 @@
+flowchart TD
+    subgraph HTTPRequestLifecycle["HTTP Request Lifecycle"]
+        direction LR
+        req1["HTTP request"] --> req2["AuthMiddleware\n(JWT Bearer)"]
+        req2 --"401"--> req_err["401 Unauthorized"]
+        req2 --"success"--> req3["ObservabilityMiddleware\nset correlation_id"]
+        req3 --> req4["Route Handler"]
+        req4 --> req5["Agent Graph"]
+        req5 --> req6["litellm / Tools"]
+        req6 --> req7["Response / SSE"]
+        req7 --> req8["Persist RequestLog"]
+        req6 -.-> req9["ObservabilityCallback\nPersist AiObservabilityLog"]
+    end
+
+    subgraph SummaryWorkflow["Bundled Sample Investment Summary Agent"]
+        direction LR
+        s1["generate_summary\nlitellm JSON"] --> s2{valid summary?}
+        s2 -- yes --> s3["END"]
+        s2 -- no --> s4{attempts < 3?}
+        s4 -- yes --> s5["generate_summary\nwith error context"] --> s2
+        s4 -- no --> s6["END with error"]
+    end
+
+    subgraph AdvisorWorkflow["Bundled Sample Investment Advisor Agent"]
+        direction LR
+        a1["agent\nlitellm + tools"] --> a2{"tool_calls?"}
+        a2 -- no --> a3["END"]
+        a2 -- yes --> a4{"iterations < 10?"}
+        a4 -- yes --> a5["tools\nToolNode"] --> a1
+        a4 -- no --> a6["END guard hit"]
+    end
+
+    subgraph CorrelationFlow["Correlation ID Flow"]
+        direction LR
+        c1["Middleware sets\ncontextvars correlation_id"] --> c2["LangGraph callback\nget_correlation_id()"]
+        c2 --> c3["RequestLog"]
+        c2 --> c4["AiObservabilityLog"]
+    end

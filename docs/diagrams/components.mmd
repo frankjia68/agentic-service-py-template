@@ -1,0 +1,51 @@
+flowchart TB
+    subgraph API["agentic_service_py_template.api"]
+        auth["auth.py\nJWT create/verify + middleware"]
+        routes["routes.py\nrouter + endpoints"]
+        obs["observability.py\ncorrelation_id + RequestLog"]
+    end
+
+    subgraph AI["agentic_service_py_template.ai"]
+        tools["tools.py\n3 tools + TOOL_DEFINITIONS"]
+        ai_obs["observability.py\nredact_pii + callback"]
+        summary["agents/investment_summary.py\nInvestmentSummaryGraph (sample)"]
+        advisor["agents/investment_advisor.py\nInvestmentAdvisorGraph (sample)"]
+    end
+
+    subgraph Core["agentic_service_py_template (core)"]
+        config["config.py\nPydantic Settings"]
+        models["models.py\nORM + InvestmentSummary"]
+        main["main.py\nFastAPI app factory"]
+    end
+
+    subgraph External["External Dependencies"]
+        litellm["litellm"]
+        fastapi["FastAPI"]
+        langgraph["LangGraph"]
+        sqlite["SQLite / aiosqlite"]
+        jwt_lib["PyJWT"]
+        sse["sse-starlette"]
+        azure["azure-functions"]
+    end
+
+    routes -->|protected by| auth
+    routes -->|ainvoke| summary
+    routes -->|astream_events| advisor
+    routes -->|middleware attaches| obs
+    main -->|registers| routes
+    main -->|registers| auth
+    main -->|registers| obs
+    main -->|lifespan builds| summary
+    main -->|lifespan builds| advisor
+    summary -->|direct call| litellm
+    advisor -->|direct call| litellm
+    advisor -->|binds| tools
+    ai_obs -->|shares correlation_id ContextVar with| obs
+    obs -->|writes| models
+    ai_obs -->|writes| models
+    main -->|reads| config
+    summary -->|validates| models
+    advisor -->|streams via| sse
+    routes -->|uses| fastapi
+
+    style External fill:#e1f5fe
